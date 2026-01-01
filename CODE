@@ -1,0 +1,169 @@
+from pathlib import Path
+import shutil
+import datetime
+
+# Categories for general type sorting
+TYPE_CATEGORIES = {
+    "Images": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff"],
+    "Videos": [".mp4", ".avi", ".mov", ".mkv", ".flv"],
+    "Documents": [".pdf", ".docx", ".doc", ".txt", ".xlsx", ".pptx"],
+    "Archives": [".zip", ".rar", ".7z", ".tar", ".gz"],
+    "Audio": [".mp3", ".wav", ".aac", ".flac"]
+}
+
+def get_file_category(file):
+    ext = file.suffix.lower()
+    for category, extensions in TYPE_CATEGORIES.items():
+        if ext in extensions:
+            return category
+    return "Others"
+
+def confirm_action():
+    confirm = input("\nProceed with sorting? (yes/no): ")
+    return confirm.lower() == "yes"
+
+def sort_folder(target_folder):
+    folder_path = Path(target_folder)
+
+    if not folder_path.is_dir():
+        print(f"'{target_folder}' is not a valid directory.")
+        print(f"Maybe you meant: {folder_path.parent}")
+        return
+
+    print(f"📂 Analyzing folder: {folder_path}\n")
+    files = [f for f in folder_path.iterdir() if f.is_file()]
+    if not files:
+        print("⚠️ No files found in the folder.")
+        return
+
+    # Menu
+    print("Choose a sorting mode:")
+    print("1 - Sort by file extension")
+    print("2 - Sort alphabetically (A → Z)")
+    print("3 - Sort by file size")
+    print("4 - Sort by modification date")
+    print("5 - Sort by creation date")
+    print("6 - Sort by last accessed date")
+    print("7 - Sort by general type (Images, Videos, Documents...)")
+    print("8 - Multi-criteria sort (Type → Extension)")
+
+    choice = input("Your choice: ")
+
+    if choice == "1":
+        files_by_ext = {}
+        for f in files:
+            ext = f.suffix.lower() if f.suffix else "NO_EXTENSION"
+            files_by_ext.setdefault(ext, []).append(f)
+
+        print("\n📊 Extension analysis:")
+        for ext, grouped in files_by_ext.items():
+            print(f"{ext} → {len(grouped)} files")
+
+        if not confirm_action():
+            print("Sorting cancelled.")
+            return
+
+        for ext, grouped in files_by_ext.items():
+            folder_ext = folder_path / (ext.replace(".", "").upper() if ext != "NO_EXTENSION" else "NO_EXTENSION")
+            folder_ext.mkdir(exist_ok=True)
+            for f in grouped:
+                shutil.move(str(f), folder_ext / f.name)
+        print("✅ Sorting by extension completed!")
+
+    elif choice == "2":
+        if not confirm_action():
+            print("Sorting cancelled.")
+            return
+        folder_alpha = folder_path / "ALPHABETICAL"
+        folder_alpha.mkdir(exist_ok=True)
+        for f in sorted(files, key=lambda x: x.name.lower()):
+            shutil.move(str(f), folder_alpha / f.name)
+        print("✅ Alphabetical sorting completed!")
+
+    elif choice == "3":
+        order = input("Ascending or descending? (asc/desc): ").lower()
+        if not confirm_action():
+            print("Sorting cancelled.")
+            return
+        folder_size = folder_path / f"BY_SIZE_{order.upper()}"
+        folder_size.mkdir(exist_ok=True)
+        reverse = order == "desc"
+        for f in sorted(files, key=lambda x: x.stat().st_size, reverse=reverse):
+            shutil.move(str(f), folder_size / f.name)
+        print("✅ Sorting by size completed!")
+
+    elif choice == "4":
+        order = input("Oldest → Newest or Newest → Oldest? (old/new): ").lower()
+        if not confirm_action():
+            print("Sorting cancelled.")
+            return
+        folder_date = folder_path / f"BY_MOD_DATE_{order.upper()}"
+        folder_date.mkdir(exist_ok=True)
+        reverse = order == "new"
+        for f in sorted(files, key=lambda x: x.stat().st_mtime, reverse=reverse):
+            shutil.move(str(f), folder_date / f.name)
+        print("✅ Sorting by modification date completed!")
+
+    elif choice == "5":
+        order = input("Oldest → Newest or Newest → Oldest? (old/new): ").lower()
+        if not confirm_action():
+            print("Sorting cancelled.")
+            return
+        folder_create = folder_path / f"BY_CREATION_DATE_{order.upper()}"
+        folder_create.mkdir(exist_ok=True)
+        reverse = order == "new"
+        for f in sorted(files, key=lambda x: x.stat().st_ctime, reverse=reverse):
+            shutil.move(str(f), folder_create / f.name)
+        print("✅ Sorting by creation date completed!")
+
+    elif choice == "6":
+        order = input("Oldest → Newest or Newest → Oldest? (old/new): ").lower()
+        if not confirm_action():
+            print("Sorting cancelled.")
+            return
+        folder_access = folder_path / f"BY_ACCESS_DATE_{order.upper()}"
+        folder_access.mkdir(exist_ok=True)
+        reverse = order == "new"
+        for f in sorted(files, key=lambda x: x.stat().st_atime, reverse=reverse):
+            shutil.move(str(f), folder_access / f.name)
+        print("✅ Sorting by last accessed date completed!")
+
+    elif choice == "7":
+        if not confirm_action():
+            print("Sorting cancelled.")
+            return
+        files_by_type = {}
+        for f in files:
+            category = get_file_category(f)
+            files_by_type.setdefault(category, []).append(f)
+        for category, grouped in files_by_type.items():
+            folder_type = folder_path / category.upper()
+            folder_type.mkdir(exist_ok=True)
+            for f in grouped:
+                shutil.move(str(f), folder_type / f.name)
+        print("✅ Sorting by general type completed!")
+
+    elif choice == "8":
+        if not confirm_action():
+            print("Sorting cancelled.")
+            return
+        files_by_type = {}
+        for f in files:
+            category = get_file_category(f)
+            files_by_type.setdefault(category, []).append(f)
+        for category, grouped in files_by_type.items():
+            folder_type = folder_path / category.upper()
+            folder_type.mkdir(exist_ok=True)
+            files_by_ext = {}
+            for f in grouped:
+                ext = f.suffix.lower() if f.suffix else "NO_EXTENSION"
+                files_by_ext.setdefault(ext, []).append(f)
+            for ext, ext_group in files_by_ext.items():
+                folder_ext = folder_type / (ext.replace(".", "").upper() if ext != "NO_EXTENSION" else "NO_EXTENSION")
+                folder_ext.mkdir(exist_ok=True)
+                for f in ext_group:
+                    shutil.move(str(f), folder_ext / f.name)
+        print("✅ Multi-criteria sorting (Type → Extension) completed!")
+
+    else:
+        print("❌ Invalid choice.")
